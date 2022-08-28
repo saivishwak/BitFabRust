@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1.20.1", features = ["full"] }
-hyper = { version = "0.14", features = ["full"] }
+hyper = { version = "0.14", features = ["full", "server"] }
+router = {path = "../router"}

@@ -209,6 +209,7 @@ name = "http_core"
 version = "0.1.0"
 dependencies = [
  "hyper",
+ "router",
  "tokio",
 ]
 
@@ -420,6 +421,10 @@ checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
 dependencies = [
  "bitflags",
 ]
+
+[[package]]
+name = "router"
+version = "0.1.0"
 
 [[package]]
 name = "scopeguard"

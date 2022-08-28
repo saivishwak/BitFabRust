@@ -1,16 +1,8 @@
-use clap::{Parser, Subcommand};
-use http_core::{Server};
+use clap::Parser;
+use http_core::Server;
 
-#[derive(Subcommand)]
-pub enum Commands {
-    Start {
-        #[clap(short, long)]
-        address: String,
-        
-        #[clap(short, long)]
-        port: u16
-    }
-}
+//Submod files
+mod types;
 
 #[derive(Parser)]
 #[clap(name = "BitFab")]
@@ -19,17 +11,16 @@ pub enum Commands {
 #[clap(about = "Distributed Computing Platform", long_about = None)]
 pub struct Cli {
     #[clap(subcommand)]
-    pub command: Option<Commands>
+    pub command: Option<types::Commands>,
 }
 
 impl Cli {
-    pub async fn init(){
+    pub async fn init() {
         let cmd: Cli = self::Cli::parse();
-        match & cmd.command {
-            Some(Commands::Start { address, port }) => {
-                let server:Server = Server::new(address.to_string(), *port);
-                let k = server.start().await;
-                println!("{}", server.get_addr_string());
+        match &cmd.command {
+            Some(types::Commands::Start { address, port }) => {
+                let server: Server = Server::new(address.to_string(), *port);
+                server.start().await;
             }
             None => {}
         }

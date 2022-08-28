@@ -13,8 +13,10 @@ tokio = { version = "1.20.1", features = ["full"] }
 
 [workspace]
 members = [
-    "core/net/http_core"
+    "core/net/http_core",
+    "core/net/router"
 ]
 
 [patch.crates-io]
 http_core = { path = "./core/net/http_core" }
+router = { path = "./core/net/router" }
