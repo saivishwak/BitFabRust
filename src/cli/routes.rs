@@ -1,15 +1,15 @@
-use router::{Router};
+use router::{Router, Methods};
 use hyper::{
     Body,
     Response
 };
 
 pub fn configure(router: &mut Router){
-    router.add_handler(String::from("GET/"), |_| -> Response<Body>{
+    router.add_handler(String::from(Methods::GET.to_string()+"/"), |_| -> Response<Body>{
         Response::new(Body::from("Home path"))
     });
 
-    router.add_handler(String::from("GET/hello"), |_| -> Response<Body>{
+    router.add_handler(String::from(Methods::GET.to_string()+"hello"), |_| -> Response<Body>{
         Response::new(Body::from("Hello path"))
     });
 }

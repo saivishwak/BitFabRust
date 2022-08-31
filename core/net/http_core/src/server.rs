@@ -30,7 +30,6 @@ impl Server {
         let make_svc = make_service_fn(move |_conn| {
             let r = r.clone();
             async move {
-                let r = r.clone();
                 Ok::<_, Infallible>(service_fn(move |req| {
                     let r = r.clone();
                     async move {

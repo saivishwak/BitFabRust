@@ -1,9 +1,9 @@
 use clap::Parser;
 
 //Submod files
-mod types;
 mod commands;
 mod routes;
+mod types;
 
 #[derive(Parser)]
 #[clap(name = "BitFab")]
