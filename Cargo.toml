@@ -10,6 +10,8 @@ colored = { version = "2" }
 clap = { version = "3.2.17" ,features = ['derive'] }
 http_core = { version = "0.1.0" }
 tokio = { version = "1.20.1", features = ["full"] }
+hyper = { version = "0.14", features = ["full", "server"] }
+router = {path = "./core/net/router"}
 
 [workspace]
 members = [
@@ -19,4 +21,3 @@ members = [
 
 [patch.crates-io]
 http_core = { path = "./core/net/http_core" }
-router = { path = "./core/net/router" }

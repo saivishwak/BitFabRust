@@ -26,6 +26,8 @@ dependencies = [
  "clap",
  "colored",
  "http_core",
+ "hyper",
+ "router",
  "tokio",
 ]
 
@@ -208,6 +210,7 @@ dependencies = [
 name = "http_core"
 version = "0.1.0"
 dependencies = [
+ "http",
  "hyper",
  "router",
  "tokio",
@@ -423,8 +426,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "route-recognizer"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afab94fb28594581f62d981211a9a4d53cc8130bbcbbb89a0440d9b8e81a7746"
+
+[[package]]
 name = "router"
 version = "0.1.0"
+dependencies = [
+ "http",
+ "hyper",
+ "route-recognizer",
+]
 
 [[package]]
 name = "scopeguard"

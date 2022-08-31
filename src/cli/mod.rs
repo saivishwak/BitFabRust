@@ -1,8 +1,9 @@
 use clap::Parser;
-use http_core::Server;
 
 //Submod files
 mod types;
+mod commands;
+mod routes;
 
 #[derive(Parser)]
 #[clap(name = "BitFab")]
@@ -19,8 +20,7 @@ impl Cli {
         let cmd: Cli = self::Cli::parse();
         match &cmd.command {
             Some(types::Commands::Start { address, port }) => {
-                let server: Server = Server::new(address.to_string(), *port);
-                server.start().await;
+                commands::start(address, port).await;
             }
             None => {}
         }

@@ -1,19 +1,14 @@
-use hyper::server::conn::AddrStream;
 use hyper::{
     service::{make_service_fn, service_fn},
-    Body, Request, Server as hyperServer,
+     Server as hyperServer,
 };
 use std::net::IpAddr;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::{convert::Infallible, net::SocketAddr};
 
-use router;
-
 //submodules
-mod types;
-
-type Response = hyper::Response<hyper::Body>;
-
+//use crate::types;
 pub struct Server {
     pub address: IpAddr,
     pub port: u16,
@@ -24,23 +19,26 @@ impl Server {
         println!("Initializing the server at {} on {}", address, port);
         Self {
             address: IpAddr::from_str(&address).unwrap(),
-            port,
+            port: port,
         }
     }
 
-    pub async fn start(&self) {
-        router::router();
+    pub async fn start(&self, r: router::Router) {
         let addr: SocketAddr = SocketAddr::new(self.address, self.port);
         //let listener = TcpListener::bind(addr).await?;
-
-        let make_svc = make_service_fn(|socket: &AddrStream| {
-            let remote_addr = socket.remote_addr();
+        let r = Arc::new(r);
+        let make_svc = make_service_fn(move |_conn| {
+            let r = r.clone();
             async move {
-                Ok::<_, Infallible>(service_fn(move |_: Request<Body>| async move {
-                    Ok::<_, Infallible>(Response::new(Body::from(format!(
-                        "Hello, {}!",
-                        remote_addr
-                    ))))
+                let r = r.clone();
+                Ok::<_, Infallible>(service_fn(move |req| {
+                    let r = r.clone();
+                    async move {
+                        let mut s = req.method().to_string();
+                        s = s + &req.uri().to_string();
+                        let a = r.handle(s, req);
+                        Ok::<_, Infallible>(a)
+                    }
                 }))
             }
         });
@@ -64,13 +62,5 @@ impl Server {
         if let Err(e) = server.await {
             eprintln!("{}", e);
         };
-    }
-
-    pub fn get_addr(&self) -> IpAddr {
-        self.address
-    }
-
-    pub fn get_addr_string(&self) -> String {
-        self.address.to_string()
     }
 }

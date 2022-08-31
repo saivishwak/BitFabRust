@@ -1,3 +1,3 @@
-pub fn router() {
-    println!("This is router method");
-}
+mod router;
+mod types;
+pub use router::Router;
