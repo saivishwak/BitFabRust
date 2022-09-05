@@ -2,7 +2,7 @@ use clap::Parser;
 
 //Submod files
 mod commands;
-mod routes;
+use super::routes;
 mod types;
 
 #[derive(Parser)]

@@ -2,7 +2,9 @@ mod cli;
 
 use cli::Cli;
 
-#[tokio::main]
+mod routes;
+
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     Cli::init().await;
 }
