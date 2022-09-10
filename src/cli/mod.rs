@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::sync::Arc;
 
 //Submod files
 mod commands;
@@ -20,7 +21,7 @@ impl Cli {
         let cmd: Cli = self::Cli::parse();
         match &cmd.command {
             Some(types::Commands::Start { address, port }) => {
-                commands::start(address, port).await;
+                commands::start(address.clone(), port.clone()).await;
             }
             None => {}
         }
