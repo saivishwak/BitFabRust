@@ -1,5 +1,4 @@
 use clap::Parser;
-use std::sync::Arc;
 
 //Submod files
 mod commands;

@@ -1,7 +1,6 @@
 use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::str::FromStr;
-use tokio::io::AsyncReadExt;
 use tokio::io::BufReader;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -10,7 +9,7 @@ async fn handle_connection(mut stream: tokio::net::TcpStream) {
     let mut buf_reader = BufReader::new(&mut stream);
     //let mut buffer = Vec::with_capacity(1024);
     loop {
-        let mut buf: [u8; 8192] = [0; 8192];
+        //let mut buf: [u8; 8192] = [0; 8192];
         let mut line = String::new();
         line.push_str("from server: ");
         let result = buf_reader.read_line(&mut line).await;
@@ -20,7 +19,14 @@ async fn handle_connection(mut stream: tokio::net::TcpStream) {
                     println!("Closing connection {}", read);
                     break;
                 }
-                buf_reader.write_all(line.as_bytes()).await;
+                match buf_reader.write_all(line.as_bytes()).await {
+                    Ok(_) => {
+                        println!("Succesfully sent msg");
+                    },
+                    Err(_) => {
+                        println!("Error sending msg");
+                    }
+                }
             }
             Err(_) => {
                 //
