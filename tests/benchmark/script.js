@@ -12,7 +12,7 @@ const HelloErrorRate = new Rate('Hello errors');
 const HomeTrend = new Trend('Home');
 const HelloTrend = new Trend('Hello');
 
-/*const requests = {
+const requests = {
   'Home': {
     method: 'GET',
     url: "http://localhost:3001",
@@ -21,12 +21,12 @@ const HelloTrend = new Trend('Hello');
     method: 'GET',
     url: "http://localhost:3001/hello",
   },
-};*/
+};
 
 
 export default function () {
-  http.get('http://localhost:3001/');
-  /*const responses = http.batch(requests);
+  //http.get('http://localhost:3001/');
+  const responses = http.batch(requests);
   const HomeResp = responses['Home'];
   const HelloResp = responses['Hello'];
 
@@ -40,7 +40,7 @@ export default function () {
     'status is 200': (r) => r.status === 200,
   }) || HelloErrorRate.add(1);
 
-  HelloTrend.add(HelloResp.timings.duration);*/
+  HelloTrend.add(HelloResp.timings.duration);
 
   sleep(1);
 }
