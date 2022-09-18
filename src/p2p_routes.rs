@@ -1,14 +1,13 @@
 use p2p;
 use p2p::GossipTypes;
 use std::sync::{Arc, Mutex};
-use std::{thread, time};
 
 pub fn configure(router: &mut p2p::router::Router) {
     router.add_handler(
         GossipTypes::Ping,
         |server_state: Arc<Mutex<p2p::Server>>| -> String {
             println!(
-                "*** FROM P2P handler {} ",
+                "Pin Handler - Server Add {}",
                 server_state.lock().unwrap().address
             );
             String::from("Pong\n")
@@ -19,7 +18,7 @@ pub fn configure(router: &mut p2p::router::Router) {
         GossipTypes::Pong,
         |server_state: Arc<Mutex<p2p::Server>>| -> String {
             println!(
-                "*** FROM P2P handler Pong {} ",
+                "Pong Handler - Server Add {}",
                 server_state.lock().unwrap().address
             );
             String::from("Ping\n")
@@ -30,7 +29,7 @@ pub fn configure(router: &mut p2p::router::Router) {
         GossipTypes::Def,
         |server_state: Arc<Mutex<p2p::Server>>| -> String {
             println!(
-                "*** FROM P2P handler {} Default",
+                "Default Handler - Server Add {}",
                 server_state.lock().unwrap().address
             );
             String::from("Default\n")

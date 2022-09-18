@@ -21,12 +21,13 @@ async fn handle_connection(
         match result {
             Ok(read) => {
                 if read == 0 {
+                    println!("Connection disconnected");
                     break;
                 }
                 let gossip_str_res = GossipTypes::from_string(&line);
                 match gossip_str_res {
                     Ok(gossip_type) => {
-                        let res_string = router.handle(gossip_type, inner_self.clone());
+                        let res_string = router.handle(gossip_type, inner_self.clone()).await;
                         match buf_reader.write_all(res_string.as_bytes()).await {
                             Ok(_) => {
                                 println!("sent message");

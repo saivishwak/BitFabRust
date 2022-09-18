@@ -1,8 +1,11 @@
 use crate::message;
+use crate::server::Server;
 use std::collections::HashMap;
+//use std::future::Future;
+//use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
-use crate::server::Server;
+//type BoxedFuture<T = String> = Pin<Box<dyn Future<Output = T>>>;
 
 type HandlerFn = fn(Arc<Mutex<Server>>) -> String;
 
@@ -22,7 +25,11 @@ impl Router {
         self.handlers.insert(key, f);
     }
 
-    pub fn handle(&self, key: message::GossipTypes, server_state: Arc<Mutex<Server>>) -> String {
+    pub async fn handle(
+        &self,
+        key: message::GossipTypes,
+        server_state: Arc<Mutex<Server>>,
+    ) -> String {
         match self.handlers.get(&key) {
             Some(handler) => handler(server_state),
             None => {
