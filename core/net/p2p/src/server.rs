@@ -1,59 +1,21 @@
-use crate::message;
-use crate::message::MessageSuccessStatusCode;
+use crate::message::{FromString, GossipTypes};
 use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 use tokio::io::BufReader;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
-#[derive(Debug)]
-pub enum GossipTypes {
-    Ping,
-    Pong,
-    Def,
-}
+use crate::router;
 
-trait FromString {
-    fn from_string(input: &String) -> Result<GossipTypes, ()>;
-}
-
-impl FromString for GossipTypes {
-    fn from_string(input: &String) -> Result<GossipTypes, ()> {
-        match input.trim() {
-            "ping" => Ok(GossipTypes::Ping),
-            "pong" => Ok(GossipTypes::Pong),
-            "def" => Ok(GossipTypes::Def),
-            _ => {
-                return Err(());
-            }
-        }
-    }
-}
-
-async fn handle_connection(mut stream: tokio::net::TcpStream) {
-    //let mut buffer = Vec::with_capacity(1024);
+async fn handle_connection(
+    inner_self: Arc<Mutex<Server>>,
+    mut stream: tokio::net::TcpStream,
+    router: Arc<router::Router>,
+) {
     let mut buf_reader = BufReader::new(&mut stream);
     loop {
-        //let mut buf: [u8; 8192] = [0; 8192];
-        /*let message_handler = message::Message::new();
-        let result = message_handler.handle(&mut stream).await;
-        match result {
-            Ok(status) => match status {
-                message::MessageSuccessStatusCode::ClosConnection => {
-                    println!("Closing connection");
-                    break;
-                }
-                message::MessageSuccessStatusCode::Success => {
-                    println!("Succesfully sent msg");
-                }
-            },
-            Err(e) => {
-                println!("{}", e);
-                break;
-            }
-        }*/
-
         let mut line = String::new();
         let result = buf_reader.read_line(&mut line).await;
         match result {
@@ -63,25 +25,17 @@ async fn handle_connection(mut stream: tokio::net::TcpStream) {
                 }
                 let gossip_str_res = GossipTypes::from_string(&line);
                 match gossip_str_res {
-                    Ok(gossip_type) => match gossip_type {
-                        GossipTypes::Ping => {
-                            println!("Ping");
-                            match buf_reader.write_all(String::from("Pong").as_bytes()).await {
-                                Ok(_) => {
-                                    println!("sent message");
-                                }
-                                Err(_) => {
-                                    println!("err sending message");
-                                }
+                    Ok(gossip_type) => {
+                        let res_string = router.handle(gossip_type, inner_self.clone());
+                        match buf_reader.write_all(res_string.as_bytes()).await {
+                            Ok(_) => {
+                                println!("sent message");
+                            }
+                            Err(_) => {
+                                println!("err sending message");
                             }
                         }
-                        GossipTypes::Pong => {
-                            println!("pong");
-                        }
-                        GossipTypes::Def => {
-                            println!("Def");
-                        }
-                    },
+                    }
                     Err(_) => {
                         println!("Error in decoding type");
                     }
@@ -93,40 +47,52 @@ async fn handle_connection(mut stream: tokio::net::TcpStream) {
         }
     }
 }
-
 pub struct Server {
     pub address: IpAddr,
     pub port: u16,
 }
 
-impl Server {
+pub struct ServerWrapper {
+    pub inner: Arc<Mutex<Server>>,
+}
+
+impl ServerWrapper {
     pub fn new(address: String, port: u16) -> Self {
         println!("Initializing the P2P server at {} on {}", address, port);
-        Self {
+        let server = Server {
             address: IpAddr::from_str(&address).unwrap(),
             port: port,
+        };
+        Self {
+            inner: Arc::new(Mutex::new(server)),
         }
     }
 
-    pub async fn start(&self) {
-        let addr: SocketAddr = SocketAddr::new(self.address, self.port);
+    pub async fn start(&mut self, router: router::Router) {
+        let inner_self = self.inner.clone();
+        let server_addr = inner_self.lock().unwrap().address;
+        let server_port = inner_self.lock().unwrap().port;
+        let addr: SocketAddr = SocketAddr::new(server_addr, server_port);
         let listener = TcpListener::bind(addr).await.unwrap();
+        let router_arc = Arc::new(router);
 
-        let handler = tokio::task::spawn(async move {
-            loop {
-                let stream = listener.accept().await;
-                match stream {
-                    Ok(res) => {
-                        println!("Accepted new connection from {}", res.1.to_string());
-                        tokio::task::spawn(handle_connection(res.0));
-                    }
-                    Err(err) => {
-                        println!("Error accepting connection {}", err);
-                    }
+        loop {
+            let stream = listener.accept().await;
+            match stream {
+                Ok(res) => {
+                    println!("Accepted new connection from {}", res.1.to_string());
+                    tokio::task::spawn({
+                        let inner_self = inner_self.clone();
+                        let router_arc = router_arc.clone();
+                        async move {
+                            handle_connection(inner_self, res.0, router_arc.clone()).await;
+                        }
+                    });
+                }
+                Err(err) => {
+                    println!("Error accepting connection {}", err);
                 }
             }
-        });
-
-        let _ = tokio::join!(handler);
+        }
     }
 }

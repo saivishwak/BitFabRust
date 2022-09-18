@@ -2,6 +2,7 @@ use clap::Parser;
 
 //Submod files
 mod commands;
+use super::p2p_routes;
 use super::routes;
 mod types;
 
