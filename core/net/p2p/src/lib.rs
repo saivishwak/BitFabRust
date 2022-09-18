@@ -1,4 +1,5 @@
-mod message;
+pub mod message;
+mod peer;
 pub mod router;
 mod server;
 pub use message::GossipTypes;

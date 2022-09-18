@@ -1,13 +1,19 @@
 #![allow(dead_code)]
+use serde;
+use serde::{Deserialize, Serialize};
+
 pub enum MessageSuccessStatusCode {
     Success,
     ClosConnection,
 }
 
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GossipTypes {
     Ping,
     Pong,
+    RequestServerInfo,
+    ProcessServerInfo,
+    ProcessNewPeer,
     Def,
 }
 
@@ -28,10 +34,28 @@ impl FromString for GossipTypes {
     }
 }
 
-pub struct Message {}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Message {
+    pub gossip_type: GossipTypes,
+    pub body: String,
+}
 
 impl Message {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(gossip_type: GossipTypes, s: &str) -> Self {
+        Self {
+            gossip_type: gossip_type,
+            body: String::from(s),
+        }
+    }
+
+    pub fn marshall(&self) -> Result<String, serde_json::Error> {
+        let this = self;
+        let json_marshalled = serde_json::to_string(this)?;
+        Ok(json_marshalled)
+    }
+
+    pub fn unmarshall(s: &str) -> Result<Message, serde_json::Error> {
+        let message: Message = serde_json::from_str(s)?;
+        Ok(message)
     }
 }

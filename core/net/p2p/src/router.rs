@@ -6,7 +6,7 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
 type BoxedRouteHandler =
-    Box<dyn Fn(Arc<Mutex<Server>>) -> BoxedRouteResponse + Send + Sync + 'static>;
+    Box<dyn Fn(message::Message, Arc<Mutex<Server>>) -> BoxedRouteResponse + Send + Sync + 'static>;
 type BoxedRouteResponse = Box<dyn Future<Output = String> + Send + Sync + 'static>;
 
 pub struct Router {
@@ -23,23 +23,22 @@ impl Router {
 
     pub fn add_handler<H, R>(&mut self, key: message::GossipTypes, f: H)
     where
-        H: Fn(Arc<Mutex<Server>>) -> R + Send + Sync + 'static,
+        H: Fn(message::Message, Arc<Mutex<Server>>) -> R + Send + Sync + 'static,
         R: Future<Output = String> + Send + Sync + 'static,
     {
-        let handler: BoxedRouteHandler =
-            Box::new(move |server_state: Arc<Mutex<Server>>| Box::new(f(server_state)));
+        let handler: BoxedRouteHandler = Box::new(
+            move |msg: message::Message, server_state: Arc<Mutex<Server>>| {
+                Box::new(f(msg, server_state))
+            },
+        );
         self.handlers.insert(key, Some(handler));
     }
 
-    pub async fn handle(
-        &self,
-        key: message::GossipTypes,
-        server_state: Arc<Mutex<Server>>,
-    ) -> String {
-        match self.handlers.get(&key) {
+    pub async fn handle(&self, msg: message::Message, server_state: Arc<Mutex<Server>>) -> String {
+        match self.handlers.get(&msg.gossip_type) {
             Some(handler) => match handler {
                 None => String::from("No handler to handle"),
-                Some(handle) => Pin::from(handle(server_state)).await,
+                Some(handle) => Pin::from(handle(msg, server_state)).await,
             },
             None => {
                 println!("Path not found");

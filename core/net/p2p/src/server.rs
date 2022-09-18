@@ -1,4 +1,4 @@
-use crate::message::{FromString, GossipTypes};
+use crate::message::Message;
 use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::str::FromStr;
@@ -7,6 +7,7 @@ use tokio::io::BufReader;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
+use crate::peer::Peer;
 use crate::router;
 
 async fn handle_connection(
@@ -24,10 +25,11 @@ async fn handle_connection(
                     println!("Connection disconnected");
                     break;
                 }
-                let gossip_str_res = GossipTypes::from_string(&line);
-                match gossip_str_res {
-                    Ok(gossip_type) => {
-                        let res_string = router.handle(gossip_type, inner_self.clone()).await;
+                //let gossip_str_res = GossipTypes::from_string(&line);
+                let gossip_type_res = Message::unmarshall(&line.trim());
+                match gossip_type_res {
+                    Ok(message) => {
+                        let res_string = router.handle(message, inner_self.clone()).await;
                         match buf_reader.write_all(res_string.as_bytes()).await {
                             Ok(_) => {
                                 println!("sent message");
@@ -51,6 +53,7 @@ async fn handle_connection(
 pub struct Server {
     pub address: IpAddr,
     pub port: u16,
+    pub peers: Vec<Peer>,
 }
 
 pub struct ServerWrapper {
@@ -63,6 +66,7 @@ impl ServerWrapper {
         let server = Server {
             address: IpAddr::from_str(&address).unwrap(),
             port: port,
+            peers: Vec::new(),
         };
         Self {
             inner: Arc::new(Mutex::new(server)),
