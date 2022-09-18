@@ -1,16 +1,16 @@
 use crate::message;
 use crate::server::Server;
 use std::collections::HashMap;
-//use std::future::Future;
-//use std::pin::Pin;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
-//type BoxedFuture<T = String> = Pin<Box<dyn Future<Output = T>>>;
-
-type HandlerFn = fn(Arc<Mutex<Server>>) -> String;
+type BoxedRouteHandler =
+    Box<dyn Fn(Arc<Mutex<Server>>) -> BoxedRouteResponse + Send + Sync + 'static>;
+type BoxedRouteResponse = Box<dyn Future<Output = String> + Send + Sync + 'static>;
 
 pub struct Router {
-    pub handlers: HashMap<message::GossipTypes, HandlerFn>,
+    pub handlers: HashMap<message::GossipTypes, Option<BoxedRouteHandler>>,
 }
 
 impl Router {
@@ -21,8 +21,14 @@ impl Router {
         }
     }
 
-    pub fn add_handler(&mut self, key: message::GossipTypes, f: HandlerFn) {
-        self.handlers.insert(key, f);
+    pub fn add_handler<H, R>(&mut self, key: message::GossipTypes, f: H)
+    where
+        H: Fn(Arc<Mutex<Server>>) -> R + Send + Sync + 'static,
+        R: Future<Output = String> + Send + Sync + 'static,
+    {
+        let handler: BoxedRouteHandler =
+            Box::new(move |server_state: Arc<Mutex<Server>>| Box::new(f(server_state)));
+        self.handlers.insert(key, Some(handler));
     }
 
     pub async fn handle(
@@ -31,7 +37,10 @@ impl Router {
         server_state: Arc<Mutex<Server>>,
     ) -> String {
         match self.handlers.get(&key) {
-            Some(handler) => handler(server_state),
+            Some(handler) => match handler {
+                None => String::from("No handler to handle"),
+                Some(handle) => Pin::from(handle(server_state)).await,
+            },
             None => {
                 println!("Path not found");
                 String::from("Path not found")
