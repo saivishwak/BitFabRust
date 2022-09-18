@@ -1,6 +1,6 @@
 //use hyper::server::conn::Http;
-use hyper::service::{service_fn, make_service_fn};
-use hyper::{Server as hyperServer};
+use hyper::service::{make_service_fn, service_fn};
+use hyper::Server as hyperServer;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -65,7 +65,7 @@ impl Server {
                     async move {
                         let mut s = req.method().to_string();
                         s = s + &req.uri().to_string();
-                        let a = r.handle(s, req);
+                        let a = r.handle(s, req).await;
                         Ok::<_, Infallible>(a)
                     }
                 }))

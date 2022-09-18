@@ -6,7 +6,7 @@ use std::path::PathBuf;
 pub fn configure(router: &mut Router) {
     router.add_handler(
         String::from(Methods::GET.to_string() + "/"),
-        |_| -> Response<Body> {
+        |_| async move {
             let contents = fs::read_to_string(PathBuf::from("./static/hello.html"));
             Response::new(Body::from(contents.unwrap()))
         },
@@ -14,6 +14,6 @@ pub fn configure(router: &mut Router) {
 
     router.add_handler(
         String::from(Methods::GET.to_string() + "/hello"),
-        |_| -> Response<Body> { Response::new(Body::from("Hello path")) },
+        |_| async move { Response::new(Body::from("Hello path")) },
     );
 }
