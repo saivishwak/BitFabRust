@@ -4,7 +4,7 @@ use cli::Cli;
 
 mod routes;
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main]
 async fn main() {
     Cli::init().await;
 }

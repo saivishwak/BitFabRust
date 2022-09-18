@@ -1,3 +1,5 @@
+use crate::message;
+use crate::message::MessageSuccessStatusCode;
 use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::str::FromStr;
@@ -5,31 +7,88 @@ use tokio::io::BufReader;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
+#[derive(Debug)]
+pub enum GossipTypes {
+    Ping,
+    Pong,
+    Def,
+}
+
+trait FromString {
+    fn from_string(input: &String) -> Result<GossipTypes, ()>;
+}
+
+impl FromString for GossipTypes {
+    fn from_string(input: &String) -> Result<GossipTypes, ()> {
+        match input.trim() {
+            "ping" => Ok(GossipTypes::Ping),
+            "pong" => Ok(GossipTypes::Pong),
+            "def" => Ok(GossipTypes::Def),
+            _ => {
+                return Err(());
+            }
+        }
+    }
+}
+
 async fn handle_connection(mut stream: tokio::net::TcpStream) {
-    let mut buf_reader = BufReader::new(&mut stream);
     //let mut buffer = Vec::with_capacity(1024);
+    let mut buf_reader = BufReader::new(&mut stream);
     loop {
         //let mut buf: [u8; 8192] = [0; 8192];
+        /*let message_handler = message::Message::new();
+        let result = message_handler.handle(&mut stream).await;
+        match result {
+            Ok(status) => match status {
+                message::MessageSuccessStatusCode::ClosConnection => {
+                    println!("Closing connection");
+                    break;
+                }
+                message::MessageSuccessStatusCode::Success => {
+                    println!("Succesfully sent msg");
+                }
+            },
+            Err(e) => {
+                println!("{}", e);
+                break;
+            }
+        }*/
+
         let mut line = String::new();
-        line.push_str("from server: ");
         let result = buf_reader.read_line(&mut line).await;
         match result {
             Ok(read) => {
                 if read == 0 {
-                    println!("Closing connection {}", read);
                     break;
                 }
-                match buf_reader.write_all(line.as_bytes()).await {
-                    Ok(_) => {
-                        println!("Succesfully sent msg");
+                let gossip_str_res = GossipTypes::from_string(&line);
+                match gossip_str_res {
+                    Ok(gossip_type) => match gossip_type {
+                        GossipTypes::Ping => {
+                            println!("Ping");
+                            match buf_reader.write_all(String::from("Pong").as_bytes()).await {
+                                Ok(_) => {
+                                    println!("sent message");
+                                }
+                                Err(_) => {
+                                    println!("err sending message");
+                                }
+                            }
+                        }
+                        GossipTypes::Pong => {
+                            println!("pong");
+                        }
+                        GossipTypes::Def => {
+                            println!("Def");
+                        }
                     },
                     Err(_) => {
-                        println!("Error sending msg");
+                        println!("Error in decoding type");
                     }
                 }
             }
             Err(_) => {
-                //
+                //return Err("Error reading message");
             }
         }
     }

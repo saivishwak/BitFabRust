@@ -1,4 +1,4 @@
-use std::{sync::Arc};
+use std::sync::Arc;
 
 use super::routes;
 use http_core::Server;
@@ -23,7 +23,7 @@ pub async fn start(address: String, port: u16) {
             let add = add.clone();
             async move {
                 let add = add.clone();
-                let p2p_server: p2p::Server = p2p::Server::new(add.to_string(), port+1);
+                let p2p_server: p2p::Server = p2p::Server::new(add.to_string(), port + 1);
                 p2p_server.start().await;
             }
         })
