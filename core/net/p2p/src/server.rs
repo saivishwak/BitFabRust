@@ -11,13 +11,16 @@ use tokio::io::AsyncWriteExt;
 use tokio::io::Interest;
 use tokio::net::TcpListener;
 //use tokio::net::TcpSocket;
+use crate::peer;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
+use uuid::Uuid;
 
 async fn handle_connection(
     inner_self: Arc<Mutex<Server>>,
     stream: Arc<Mutex<tokio::net::TcpStream>>,
     router: Arc<router::Router>,
+    stream_id: Uuid,
 ) {
     loop {
         let mut stream_mutex_guard = stream.lock().await;
@@ -38,7 +41,8 @@ async fn handle_connection(
                     let gossip_type_res = Message::unmarshall(&buffer);
                     match gossip_type_res {
                         Ok(message) => {
-                            let res_string = router.handle(message, inner_self.clone()).await;
+                            let res_string =
+                                router.handle(message, stream_id, inner_self.clone()).await;
                             if stream_ready.is_writable() {
                                 match stream_mutex_guard.write_all(res_string.as_bytes()).await {
                                     Ok(_) => {
@@ -70,6 +74,7 @@ async fn handle_connection(
         }
     }
 }
+
 pub struct Server {
     pub address: IpAddr,
     pub port: u16,
@@ -107,20 +112,38 @@ impl ServerWrapper {
                 Ok(stream_data) => {
                     let stream_data_clone = Arc::new(Mutex::new(stream_data.0));
                     println!("Accepted new connection from {}", stream_data.1.to_string());
+                    let stream_id = Uuid::new_v4();
+                    inner_self.lock().await.peers.push(peer::Peer {
+                        socket_stream: stream_data_clone.clone(),
+                        stream_id,
+                        direction: peer::PeerDirection::Inbound,
+                        address: Some(stream_data.1.ip()),
+                        port: 0,
+                    });
                     let stream_data_clone_1 = stream_data_clone.clone();
                     tokio::task::spawn({
                         let inner_self = inner_self.clone();
                         let router_arc = router_arc.clone();
                         async move {
-                            handle_connection(inner_self, stream_data_clone_1, router_arc.clone())
-                                .await;
+                            handle_connection(
+                                inner_self,
+                                stream_data_clone_1,
+                                router_arc.clone(),
+                                stream_id,
+                            )
+                            .await;
                         }
                     });
 
                     if server_port == 3002 {
                         println!("Sending first msg");
                         let stream_data_clone = stream_data_clone.clone();
-                        let m = Message::new(GossipTypes::Ping, "Hello");
+                        let m = Message::new(
+                            GossipTypes::RequestServerInfo,
+                            "Hello",
+                            Some(server_addr),
+                            server_port,
+                        );
                         let s = m.marshall();
                         match s {
                             Ok(st) => {
@@ -148,14 +171,24 @@ impl ServerWrapper {
         let router_arc = Arc::new(router);
 
         if self.inner.lock().await.port != port {
-            let stream = TcpStream::connect("127.0.0.1:3002").await;
+            let tcp_address = SocketAddr::from(([127, 0, 0, 1], port));
+            let stream = TcpStream::connect(tcp_address).await;
             match stream {
-                Ok(s) => {
-                    let s_clone = Arc::new(Mutex::new(s));
+                Ok(stream_data) => {
+                    let stream_data_clone = Arc::new(Mutex::new(stream_data));
                     println!("Successfully connected to server in port {}", port);
+                    let stream_id = Uuid::new_v4();
                     let inner_self = inner_self.clone();
                     let router_arc = router_arc.clone();
-                    handle_connection(inner_self, s_clone, router_arc.clone()).await;
+                    inner_self.lock().await.peers.push(peer::Peer {
+                        socket_stream: stream_data_clone.clone(),
+                        stream_id,
+                        direction: peer::PeerDirection::Outbound,
+                        address: None,
+                        port: 0,
+                    });
+                    handle_connection(inner_self, stream_data_clone, router_arc.clone(), stream_id)
+                        .await;
                 }
                 Err(e) => {
                     println!("Error Connecting Peer {}", e);

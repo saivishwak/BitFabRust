@@ -1,5 +1,6 @@
 use serde;
 use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
 use std::str::from_utf8;
 
 pub enum MessageSuccessStatusCode {
@@ -34,17 +35,32 @@ impl FromString for GossipTypes {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PeerInfo {
+    address: Option<IpAddr>,
+    pub port: u16,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MessageBody {
+    pub peer_info: PeerInfo,
+    body: String,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Message {
     pub gossip_type: GossipTypes,
-    pub body: String,
+    pub body: MessageBody,
 }
 
 impl Message {
-    pub fn new(gossip_type: GossipTypes, s: &str) -> Self {
+    pub fn new(gossip_type: GossipTypes, s: &str, address: Option<IpAddr>, port: u16) -> Self {
         Self {
             gossip_type,
-            body: String::from(s),
+            body: MessageBody {
+                peer_info: PeerInfo { address, port },
+                body: String::from(s),
+            },
         }
     }
 

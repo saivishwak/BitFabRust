@@ -24,8 +24,6 @@ pub async fn start(address: String, port: u16) {
         tokio::task::spawn({
             let p2p_server = p2p_server.clone();
             async move {
-                /*let mut p2p_server: p2p::ServerWrapper =
-                p2p::ServerWrapper::new(add.to_string(), port + 1);*/
                 let mut p2p_router = p2p::router::Router::new();
                 p2p_routes::configure(&mut p2p_router);
                 p2p_server.start(p2p_router).await;
