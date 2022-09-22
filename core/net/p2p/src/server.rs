@@ -1,51 +1,71 @@
-use crate::message::Message;
-use std::net::IpAddr;
-use std::net::SocketAddr;
-use std::str::FromStr;
-use std::sync::{Arc, Mutex};
-use tokio::io::BufReader;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
-use tokio::net::TcpListener;
-
+use crate::message::{GossipTypes, Message};
 use crate::peer::Peer;
 use crate::router;
+use std::io;
+use std::net::IpAddr;
+use std::net::SocketAddr;
+use std::str;
+use std::str::FromStr;
+use std::sync::Arc;
+use tokio::io::AsyncWriteExt;
+use tokio::io::Interest;
+use tokio::net::TcpListener;
+//use tokio::net::TcpSocket;
+use tokio::net::TcpStream;
+use tokio::sync::Mutex;
 
 async fn handle_connection(
     inner_self: Arc<Mutex<Server>>,
-    mut stream: tokio::net::TcpStream,
+    stream: Arc<Mutex<tokio::net::TcpStream>>,
     router: Arc<router::Router>,
 ) {
-    let mut buf_reader = BufReader::new(&mut stream);
     loop {
-        let mut line = String::new();
-        let result = buf_reader.read_line(&mut line).await;
-        match result {
-            Ok(read) => {
-                if read == 0 {
-                    println!("Connection disconnected");
-                    break;
-                }
-                //let gossip_str_res = GossipTypes::from_string(&line);
-                let gossip_type_res = Message::unmarshall(&line.trim());
-                match gossip_type_res {
-                    Ok(message) => {
-                        let res_string = router.handle(message, inner_self.clone()).await;
-                        match buf_reader.write_all(res_string.as_bytes()).await {
-                            Ok(_) => {
-                                println!("sent message");
-                            }
-                            Err(_) => {
-                                println!("err sending message");
+        let mut stream_mutex_guard = stream.lock().await;
+        let mut buffer = Vec::with_capacity(4096);
+        let stream_ready = stream_mutex_guard
+            .ready(Interest::READABLE | Interest::WRITABLE)
+            .await
+            .unwrap();
+        if stream_ready.is_readable() {
+            let stream_data = stream_mutex_guard.try_read_buf(&mut buffer);
+            match stream_data {
+                Ok(data) => {
+                    if data == 0 {
+                        println!("Connection disconnected");
+                        break;
+                    }
+                    println!("Received msg {:?}", str::from_utf8(&buffer));
+                    let gossip_type_res = Message::unmarshall(&buffer);
+                    match gossip_type_res {
+                        Ok(message) => {
+                            let res_string = router.handle(message, inner_self.clone()).await;
+                            if stream_ready.is_writable() {
+                                match stream_mutex_guard.write_all(res_string.as_bytes()).await {
+                                    Ok(_) => {
+                                        println!("Message sent");
+                                    }
+                                    Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                                        println!("Error in would block write");
+                                        continue;
+                                    }
+                                    Err(e) => {
+                                        println!("Error sending message {}", e);
+                                    }
+                                }
                             }
                         }
-                    }
-                    Err(_) => {
-                        println!("Error in decoding type");
+                        Err(_) => {
+                            println!("Error in decoding type");
+                        }
                     }
                 }
-            }
-            Err(_) => {
-                //return Err("Error reading message");
+                Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                    continue;
+                }
+                Err(_) => {
+                    println!("Error reading message");
+                    //break;
+                }
             }
         }
     }
@@ -65,7 +85,7 @@ impl ServerWrapper {
         println!("Initializing the P2P server at {} on {}", address, port);
         let server = Server {
             address: IpAddr::from_str(&address).unwrap(),
-            port: port,
+            port,
             peers: Vec::new(),
         };
         Self {
@@ -73,10 +93,10 @@ impl ServerWrapper {
         }
     }
 
-    pub async fn start(&mut self, router: router::Router) {
+    pub async fn start(&self, router: router::Router) {
         let inner_self = self.inner.clone();
-        let server_addr = inner_self.lock().unwrap().address;
-        let server_port = inner_self.lock().unwrap().port;
+        let server_addr = inner_self.lock().await.address;
+        let server_port = inner_self.lock().await.port;
         let addr: SocketAddr = SocketAddr::new(server_addr, server_port);
         let listener = TcpListener::bind(addr).await.unwrap();
         let router_arc = Arc::new(router);
@@ -84,20 +104,65 @@ impl ServerWrapper {
         loop {
             let stream = listener.accept().await;
             match stream {
-                Ok(res) => {
-                    println!("Accepted new connection from {}", res.1.to_string());
+                Ok(stream_data) => {
+                    let stream_data_clone = Arc::new(Mutex::new(stream_data.0));
+                    println!("Accepted new connection from {}", stream_data.1.to_string());
+                    let stream_data_clone_1 = stream_data_clone.clone();
                     tokio::task::spawn({
                         let inner_self = inner_self.clone();
                         let router_arc = router_arc.clone();
                         async move {
-                            handle_connection(inner_self, res.0, router_arc.clone()).await;
+                            handle_connection(inner_self, stream_data_clone_1, router_arc.clone())
+                                .await;
                         }
                     });
+
+                    if server_port == 3002 {
+                        println!("Sending first msg");
+                        let stream_data_clone = stream_data_clone.clone();
+                        let m = Message::new(GossipTypes::Ping, "Hello");
+                        let s = m.marshall();
+                        match s {
+                            Ok(st) => {
+                                let _ = stream_data_clone.lock().await.write(st.as_bytes()).await;
+                            }
+                            Err(e) => {
+                                println!("Error in marshalling {}", e);
+                            }
+                        }
+                    }
                 }
                 Err(err) => {
                     println!("Error accepting connection {}", err);
                 }
             }
+        }
+    }
+
+    pub fn print_status(&self) {
+        println!("Running");
+    }
+
+    pub async fn connect_to_peer(&self, port: u16, router: router::Router) {
+        let inner_self = self.inner.clone();
+        let router_arc = Arc::new(router);
+
+        if self.inner.lock().await.port != port {
+            let stream = TcpStream::connect("127.0.0.1:3002").await;
+            match stream {
+                Ok(s) => {
+                    let s_clone = Arc::new(Mutex::new(s));
+                    println!("Successfully connected to server in port {}", port);
+                    let inner_self = inner_self.clone();
+                    let router_arc = router_arc.clone();
+                    handle_connection(inner_self, s_clone, router_arc.clone()).await;
+                }
+                Err(e) => {
+                    println!("Error Connecting Peer {}", e);
+                }
+            }
+        } else {
+            println!("Connected to self ignoring");
         }
     }
 }

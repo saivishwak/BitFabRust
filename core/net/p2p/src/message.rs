@@ -1,6 +1,6 @@
-#![allow(dead_code)]
 use serde;
 use serde::{Deserialize, Serialize};
+use std::str::from_utf8;
 
 pub enum MessageSuccessStatusCode {
     Success,
@@ -43,7 +43,7 @@ pub struct Message {
 impl Message {
     pub fn new(gossip_type: GossipTypes, s: &str) -> Self {
         Self {
-            gossip_type: gossip_type,
+            gossip_type,
             body: String::from(s),
         }
     }
@@ -54,8 +54,8 @@ impl Message {
         Ok(json_marshalled)
     }
 
-    pub fn unmarshall(s: &str) -> Result<Message, serde_json::Error> {
-        let message: Message = serde_json::from_str(s)?;
+    pub fn unmarshall(data: &Vec<u8>) -> Result<Message, serde_json::Error> {
+        let message: Message = serde_json::from_str(from_utf8(&data).unwrap())?;
         Ok(message)
     }
 }

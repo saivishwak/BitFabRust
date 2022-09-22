@@ -1,28 +1,25 @@
 use p2p;
 use p2p::message::Message;
 use p2p::GossipTypes;
-use std::sync::{Arc, Mutex};
-//use tokio::time::{sleep, Duration};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use tokio::time::{sleep, Duration};
 
 pub fn configure(router: &mut p2p::router::Router) {
     router.add_handler(
         GossipTypes::Ping,
         |message: Message, server_state: Arc<Mutex<p2p::Server>>| async move {
             println!(
-                "Pin Handler - Server Add {} {:?}",
-                server_state.lock().unwrap().address,
+                "Ping Handler - Server Add {} {:?}",
+                server_state.lock().await.address,
                 message
             );
             //To simluate async
-            //sleep(Duration::from_millis(5000)).await;
-            // String::from("Pong\n")
-            let message = Message::new(GossipTypes::Pong, "Pinging");
+            sleep(Duration::from_millis(2000)).await;
+            let message = Message::new(GossipTypes::Pong, "Ponging");
             let response = message.marshall();
             match response {
-                Ok(res) => {
-                    println!("JSON {}", res);
-                    res
-                }
+                Ok(res) => res,
                 Err(_) => String::new(),
             }
         },
@@ -33,10 +30,16 @@ pub fn configure(router: &mut p2p::router::Router) {
         |message: Message, server_state: Arc<Mutex<p2p::Server>>| async move {
             println!(
                 "Pong Handler - Server Add {} {:?}",
-                server_state.lock().unwrap().address,
+                server_state.lock().await.address,
                 message
             );
-            String::from("Ping\n")
+            //sleep(Duration::from_millis(2000)).await;
+            let message = Message::new(GossipTypes::Ping, "Pinging");
+            let response = message.marshall();
+            match response {
+                Ok(res) => res,
+                Err(_) => String::new(),
+            }
         },
     );
 

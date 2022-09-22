@@ -3,7 +3,8 @@ use crate::server::Server;
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 type BoxedRouteHandler =
     Box<dyn Fn(message::Message, Arc<Mutex<Server>>) -> BoxedRouteResponse + Send + Sync + 'static>;
