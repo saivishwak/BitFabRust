@@ -81,6 +81,16 @@ pub struct Server {
     pub peers: Vec<Peer>,
 }
 
+impl Server {
+    pub fn handle(&self) {
+        println!("Hanlde");
+    }
+
+    pub async fn connect_to_peer(&self) {
+        println!("***** Coonnect to pper");
+    }
+}
+
 pub struct ServerWrapper {
     pub inner: Arc<Mutex<Server>>,
 }
@@ -100,6 +110,7 @@ impl ServerWrapper {
 
     pub async fn start(&self, router: router::Router) {
         let inner_self = self.inner.clone();
+        inner_self.lock().await.connect_to_peer().await;
         let server_addr = inner_self.lock().await.address;
         let server_port = inner_self.lock().await.port;
         let addr: SocketAddr = SocketAddr::new(server_addr, server_port);

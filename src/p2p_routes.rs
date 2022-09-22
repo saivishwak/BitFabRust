@@ -80,7 +80,12 @@ pub fn configure(router: &mut p2p::router::Router) {
                 println!("{:?}", peer);
             }
 
-            let message = Message::new(GossipTypes::Def, "", Some(server_addr), server_port);
+            let message = Message::new(
+                GossipTypes::ProcessNewPeer,
+                "",
+                Some(server_addr),
+                server_port,
+            );
             let response = message.marshall();
             match response {
                 Ok(res) => res,
@@ -104,9 +109,12 @@ pub fn configure(router: &mut p2p::router::Router) {
                 }
             }
 
+            println!("********");
+            server_info.lock().await.handle();
+
             if !found {
                 if server_port != message.body.peer_info.port {
-                    //
+                    server_info.lock().await.handle();
                 }
             }
 
