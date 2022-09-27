@@ -115,6 +115,7 @@ dependencies = [
  "http_core",
  "hyper",
  "p2p",
+ "rand",
  "router",
  "tokio",
  "uuid",
@@ -488,6 +489,7 @@ checksum = "9ff7415e9ae3fff1225851df9e0d9e4e5479f947619774677a63572e55e80eff"
 name = "p2p"
 version = "0.1.0"
 dependencies = [
+ "rand",
  "serde",
  "serde_json",
  "tokio",

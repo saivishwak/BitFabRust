@@ -4,12 +4,14 @@ use p2p::GossipTypes;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
-use uuid::Uuid;
+//use uuid::Uuid;
+
+use std::net::SocketAddr;
 
 pub fn configure(router: &mut p2p::router::Router) {
     router.add_handler(
         GossipTypes::Ping,
-        |message: Message, _: Uuid, server_state: Arc<Mutex<p2p::Server>>| async move {
+        |message: Message, _: SocketAddr, server_state: Arc<Mutex<p2p::Server>>| async move {
             let server_addr = server_state.lock().await.address;
             let server_port = server_state.lock().await.port;
             println!("Ping Handler - Server Add {} {:?}", server_addr, message);
@@ -27,7 +29,7 @@ pub fn configure(router: &mut p2p::router::Router) {
 
     router.add_handler(
         GossipTypes::Pong,
-        |message: Message, _: Uuid, server_state: Arc<Mutex<p2p::Server>>| async move {
+        |message: Message, _: SocketAddr, server_state: Arc<Mutex<p2p::Server>>| async move {
             let server_addr = server_state.lock().await.address;
             let server_port = server_state.lock().await.port;
 
@@ -45,7 +47,7 @@ pub fn configure(router: &mut p2p::router::Router) {
 
     router.add_handler(
         GossipTypes::RequestServerInfo,
-        |message: Message, _: Uuid, server_info: Arc<Mutex<p2p::Server>>| async move {
+        |message: Message, _: SocketAddr, server_info: Arc<Mutex<p2p::Server>>| async move {
             println!("Request server info {:?}", message);
             let server_addr = server_info.lock().await.address;
             let server_port = server_info.lock().await.port;
@@ -66,18 +68,22 @@ pub fn configure(router: &mut p2p::router::Router) {
 
     router.add_handler(
         GossipTypes::ProcessServerInfo,
-        |message: Message, stream_id: Uuid, server_info: Arc<Mutex<p2p::Server>>| async move {
+        |message: Message, stream_id: SocketAddr, server_info: Arc<Mutex<p2p::Server>>| async move {
             println!("Process server info {:?}", message);
             let server_addr = server_info.lock().await.address;
             let server_port = server_info.lock().await.port;
-            let peers = &mut server_info.lock().await.peers;
+            let p = message.body.peer_info.port;
 
-            for peer in peers {
-                if peer.stream_id == stream_id {
-                    println!("Found Peer");
-                    peer.port = message.body.peer_info.port;
+            {
+                let peers = &mut server_info.lock().await.peers;
+
+                for peer in peers {
+                    if peer.stream_id == stream_id {
+                        println!("Found Peer");
+                        peer.port = message.body.peer_info.port;
+                    }
+                    println!("{:?}", peer);
                 }
-                println!("{:?}", peer);
             }
 
             let message = Message::new(
@@ -86,7 +92,15 @@ pub fn configure(router: &mut p2p::router::Router) {
                 Some(server_addr),
                 server_port,
             );
-            let response = message.marshall();
+            //let response = message.marshall();
+            let _ = server_info
+                .lock()
+                .await
+                .broadcast_to_peers(message, stream_id, p)
+                .await;
+
+            let message_1 = Message::new(GossipTypes::Def, "", Some(server_addr), server_port);
+            let response = message_1.marshall();
             match response {
                 Ok(res) => res,
                 Err(_) => String::new(),
@@ -96,25 +110,30 @@ pub fn configure(router: &mut p2p::router::Router) {
 
     router.add_handler(
         GossipTypes::ProcessNewPeer,
-        |message: Message, stream_id: Uuid, server_info: Arc<Mutex<p2p::Server>>| async move {
+        |message: Message, _: SocketAddr, server_info: Arc<Mutex<p2p::Server>>| async move {
             println!("Process New Peer {:?}", message);
             let server_addr = server_info.lock().await.address;
             let server_port = server_info.lock().await.port;
-            let peers = &mut server_info.lock().await.peers;
             let mut found = false;
+            let p = message.body.peer_info.port;
 
-            for peer in peers {
-                if peer.stream_id == stream_id {
-                    found = true;
+            {
+                let peers = &server_info.lock().await.peers;
+                for peer in peers {
+                    if peer.port == p {
+                        found = true;
+                    }
                 }
             }
 
-            println!("********");
-            server_info.lock().await.handle();
+            println!("******** {}", found);
+            //let _ = server_info.lock().await.handle().await;
+            println!("***** DONE *****");
 
             if !found {
-                if server_port != message.body.peer_info.port {
-                    server_info.lock().await.handle();
+                if server_port != p {
+                    println!("*** YESSS ***");
+                    p2p::utils::connect_to_peer(server_info, p).await;
                 }
             }
 

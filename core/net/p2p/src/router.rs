@@ -5,10 +5,11 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use uuid::Uuid;
+//use uuid::Uuid;
+use std::net::SocketAddr;
 
 type BoxedRouteHandler = Box<
-    dyn Fn(message::Message, Uuid, Arc<Mutex<Server>>) -> BoxedRouteResponse
+    dyn Fn(message::Message, SocketAddr, Arc<Mutex<Server>>) -> BoxedRouteResponse
         + Send
         + Sync
         + 'static,
@@ -29,11 +30,13 @@ impl Router {
 
     pub fn add_handler<H, R>(&mut self, key: message::GossipTypes, f: H)
     where
-        H: Fn(message::Message, Uuid, Arc<Mutex<Server>>) -> R + Send + Sync + 'static,
+        H: Fn(message::Message, SocketAddr, Arc<Mutex<Server>>) -> R + Send + Sync + 'static,
         R: Future<Output = String> + Send + Sync + 'static,
     {
         let handler: BoxedRouteHandler = Box::new(
-            move |msg: message::Message, stream_id: Uuid, server_state: Arc<Mutex<Server>>| {
+            move |msg: message::Message,
+                  stream_id: SocketAddr,
+                  server_state: Arc<Mutex<Server>>| {
                 Box::new(f(msg, stream_id, server_state))
             },
         );
@@ -43,7 +46,7 @@ impl Router {
     pub async fn handle(
         &self,
         msg: message::Message,
-        stream_id: Uuid,
+        stream_id: SocketAddr,
         server_state: Arc<Mutex<Server>>,
     ) -> String {
         match self.handlers.get(&msg.gossip_type) {
