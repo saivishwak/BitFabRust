@@ -1,4 +1,5 @@
 # BitFabRust
+Building a peer to peer decentralized compute platform to run high demanding tasks distributedly.
 
 ## To Do
 - [ ] Add channels so that inter thread communication is possible (ex, http and p2p)
