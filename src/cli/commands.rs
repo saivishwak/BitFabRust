@@ -22,7 +22,7 @@ pub async fn start(address: String, port: u16) {
         p2p_router_arc.clone(),
     ));
 
-    let (_, _, _) = tokio::join!(
+    let (_, _) = tokio::join!(
         tokio::task::spawn({
             let addr = addr.clone();
             async move {
@@ -38,15 +38,5 @@ pub async fn start(address: String, port: u16) {
                 p2p_server.start().await;
             }
         }),
-        tokio::task::spawn({
-            //let p2p_server = p2p_server.clone();
-            async move {
-                //p2p_server.print_status();
-                //let mut p2p_router = p2p::router::Router::new();
-                //p2p_routes::configure(&mut p2p_router);
-
-                //p2p_server.connect_to_peer(3002, p2p_router).await;
-            }
-        })
     );
 }

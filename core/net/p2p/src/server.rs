@@ -4,7 +4,6 @@ use crate::router;
 use std::io;
 use std::net::IpAddr;
 use std::net::SocketAddr;
-//use std::str;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
@@ -12,12 +11,10 @@ use tokio::io::Interest;
 use tokio::net::TcpListener;
 //use tokio::net::TcpSocket;
 use crate::peer;
-//use rand::Rng;
-use tokio::sync::Mutex;
-//use uuid::Uuid;
-use std::net::Ipv4Addr;
-
 use crate::utils;
+use std::net::Ipv4Addr;
+use tokio::sync::Mutex;
+use tokio::time::{sleep, Duration};
 
 pub struct Server {
     pub address: IpAddr,
@@ -31,17 +28,16 @@ impl Server {
         println!("Hanlde");
     }
 
-    pub async fn broadcast_to_peers(&self, _: Message, stream_id: SocketAddr, port: u16) {
-        println!("Broadcast initiated {}", port);
+    pub async fn broadcast_to_peers(&self, _: Message, stream_id: SocketAddr, broadcast_port: u16) {
+        println!("Broadcast initiated");
 
         for peer in &self.peers {
-            println!("** {} -- {}", peer.stream_id, stream_id);
             if peer.stream_id != stream_id {
                 let message = Message::new(
                     GossipTypes::ProcessNewPeer,
                     "",
                     Some(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))),
-                    port,
+                    broadcast_port,
                 );
 
                 let response = message.marshall();
@@ -51,7 +47,7 @@ impl Server {
                 };
 
                 let mut a = peer.socket_stream.lock().await;
-                println!("Aasdasdasdas ****");
+                println!("Broadcasting to peer {}", peer.port);
                 let stream_ready = a
                     .ready(Interest::READABLE | Interest::WRITABLE)
                     .await
@@ -59,7 +55,7 @@ impl Server {
                 if stream_ready.is_writable() {
                     match a.write_all(resp.as_bytes()).await {
                         Ok(_) => {
-                            println!("Successfully send braodcast");
+                            println!("Successfully sent braodcast message");
                         }
                         Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                             println!("Error in would block write for broadcast");
@@ -99,10 +95,8 @@ impl ServerWrapper {
         let server_port = inner_self.lock().await.port;
         let addr: SocketAddr = SocketAddr::new(server_addr, server_port);
         let listener = TcpListener::bind(addr).await.unwrap();
-        //let router_arc = Arc::new(router);
         let server_router = inner_self.lock().await.router.clone();
 
-        //let (tcp_handler) = tokio::join!(
         let a = tokio::task::spawn(async move {
             loop {
                 let stream = listener.accept().await;
@@ -129,13 +123,13 @@ impl ServerWrapper {
                                     stream_data_clone_1,
                                     router.clone(),
                                     stream_id,
+                                    stream_data.1,
                                 )
                                 .await;
                             }
                         });
 
                         {
-                            println!("Sending first msg");
                             let stream_data_clone = stream_data_clone.clone();
                             let m = Message::new(
                                 GossipTypes::RequestServerInfo,
@@ -162,12 +156,25 @@ impl ServerWrapper {
             }
         });
         let inner_self = self.inner.clone();
-        let b = tokio::spawn(async move {
+        tokio::spawn(async move {
             println!("Trying to connect to bootstrap peers");
             utils::connect_to_peer(inner_self, 3002).await;
         });
 
-        let _ = tokio::join!(a, b);
+        let inner_self = self.inner.clone();
+        tokio::spawn(async move {
+            loop {
+                sleep(Duration::from_millis(3000)).await;
+                let peers = &inner_self.lock().await.peers;
+                let mut count = 0;
+                for _ in peers {
+                    count += 1;
+                }
+                println!("Total Number of peers - {}", count);
+            }
+        });
+
+        let _ = tokio::join!(a);
     }
 
     pub fn print_status(&self) {

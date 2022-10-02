@@ -2,7 +2,7 @@
 
 ## To Do
 - [ ] Add channels so that inter thread communication is possible (ex, http and p2p)
-- [ ] check if the processNewPeer handler a blocking task as we are awaiting there
+- [x] check if the processNewPeer handler a blocking task as we are awaiting there
 - [ ] refactor the entire code
 - [ ] make stream_id as UUID
 - [x] make stream_id unique so that boradcast_to_peers can work

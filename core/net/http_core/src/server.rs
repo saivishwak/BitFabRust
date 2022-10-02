@@ -1,42 +1,9 @@
-//use hyper::server::conn::Http;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Server as hyperServer;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::{convert::Infallible, net::SocketAddr};
-//use tokio::net::TcpListener;
-//use std::time::Duration;
-
-//submodules
-//use super::constants;
-
-/*fn handle_connection(stream: tokio::net::TcpStream, r: &Arc<router::Router>){
-    tokio::task::spawn({
-        let r = r.clone();
-        async move {
-            if let Err(err) = Http::new()
-            .http2_keep_alive_timeout(Duration::from_millis(constants::HTTP2_KEEP_ALIVE_TIMEOUT))
-            .http1_keep_alive(true)
-                .serve_connection(
-                    stream,
-                    service_fn(move |req| {
-                        let r = r.clone();
-                        async move {
-                            let s = req.method().to_string()
-                                + &req.uri().to_string();
-                            let a = r.handle(s, req);
-                            Ok::<_, Infallible>(a)
-                        }
-                    }),
-                )
-                .await
-            {
-                println!("Error serving connection: {:?}", err);
-            }
-        }
-    });
-}*/
 
 pub struct Server {
     pub address: IpAddr,
@@ -45,10 +12,10 @@ pub struct Server {
 
 impl Server {
     pub fn new(address: String, port: u16) -> Self {
-        println!("Initializing the server at {} on {}", address, port);
+        println!("Initializing Http server at {} on {}", address, port);
         Self {
             address: IpAddr::from_str(&address).unwrap(),
-            port: port,
+            port,
         }
     }
 
@@ -91,7 +58,7 @@ impl Server {
 
         // When using hyper as internal server
         let server = hyperServer::bind(&addr).serve(make_svc);
-        println!("Listening on http://{}", addr);
+        println!("Listening HTTP on http://{}", addr);
         if let Err(e) = server.await {
             eprintln!("{}", e);
         };

@@ -1,10 +1,8 @@
-#![allow(dead_code)]
 use std::net::IpAddr;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
-//use uuid::Uuid;
-use std::net::SocketAddr;
 
 #[derive(Debug)]
 pub enum PeerDirection {

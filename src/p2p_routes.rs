@@ -21,8 +21,8 @@ pub fn configure(router: &mut p2p::router::Router) {
                 Message::new(GossipTypes::Pong, "Ponging", Some(server_addr), server_port);
             let response = message.marshall();
             match response {
-                Ok(res) => res,
-                Err(_) => String::new(),
+                Ok(res) => Some(res),
+                Err(_) => None,
             }
         },
     );
@@ -39,16 +39,16 @@ pub fn configure(router: &mut p2p::router::Router) {
                 Message::new(GossipTypes::Ping, "Pinging", Some(server_addr), server_port);
             let response = message.marshall();
             match response {
-                Ok(res) => res,
-                Err(_) => String::new(),
+                Ok(res) => Some(res),
+                Err(_) => None,
             }
         },
     );
 
     router.add_handler(
         GossipTypes::RequestServerInfo,
-        |message: Message, _: SocketAddr, server_info: Arc<Mutex<p2p::Server>>| async move {
-            println!("Request server info {:?}", message);
+        |_: Message, _: SocketAddr, server_info: Arc<Mutex<p2p::Server>>| async move {
+            println!("Request server info handler");
             let server_addr = server_info.lock().await.address;
             let server_port = server_info.lock().await.port;
 
@@ -60,8 +60,8 @@ pub fn configure(router: &mut p2p::router::Router) {
             );
             let response = message.marshall();
             match response {
-                Ok(res) => res,
-                Err(_) => String::new(),
+                Ok(res) => Some(res),
+                Err(_) => None,
             }
         },
     );
@@ -69,20 +69,20 @@ pub fn configure(router: &mut p2p::router::Router) {
     router.add_handler(
         GossipTypes::ProcessServerInfo,
         |message: Message, stream_id: SocketAddr, server_info: Arc<Mutex<p2p::Server>>| async move {
-            println!("Process server info {:?}", message);
+            println!("Process server info handler");
             let server_addr = server_info.lock().await.address;
             let server_port = server_info.lock().await.port;
-            let p = message.body.peer_info.port;
+            let new_peer_port = message.body.peer_info.port;
 
             {
                 let peers = &mut server_info.lock().await.peers;
 
                 for peer in peers {
                     if peer.stream_id == stream_id {
-                        println!("Found Peer");
+                        println!("Found Peer and changing the port internally");
                         peer.port = message.body.peer_info.port;
                     }
-                    println!("{:?}", peer);
+                    println!("After port change Peer - {:?}", peer);
                 }
             }
 
@@ -96,23 +96,17 @@ pub fn configure(router: &mut p2p::router::Router) {
             let _ = server_info
                 .lock()
                 .await
-                .broadcast_to_peers(message, stream_id, p)
+                .broadcast_to_peers(message, stream_id, new_peer_port)
                 .await;
 
-            let message_1 = Message::new(GossipTypes::Def, "", Some(server_addr), server_port);
-            let response = message_1.marshall();
-            match response {
-                Ok(res) => res,
-                Err(_) => String::new(),
-            }
+            None
         },
     );
 
     router.add_handler(
         GossipTypes::ProcessNewPeer,
         |message: Message, _: SocketAddr, server_info: Arc<Mutex<p2p::Server>>| async move {
-            println!("Process New Peer {:?}", message);
-            let server_addr = server_info.lock().await.address;
+            println!("Process New Peer handler");
             let server_port = server_info.lock().await.port;
             let mut found = false;
             let p = message.body.peer_info.port;
@@ -126,23 +120,18 @@ pub fn configure(router: &mut p2p::router::Router) {
                 }
             }
 
-            println!("******** {}", found);
-            //let _ = server_info.lock().await.handle().await;
-            println!("***** DONE *****");
-
             if !found {
                 if server_port != p {
-                    println!("*** YESSS ***");
-                    p2p::utils::connect_to_peer(server_info, p).await;
+                    let _ = tokio::task::spawn(async move {
+                        p2p::utils::connect_to_peer(server_info, p).await;
+                    });
+                    //let _ = tokio::join!(a);
                 }
+            } else {
+                println!("Found Peer - ingoring connect to peer");
             }
 
-            let message = Message::new(GossipTypes::Def, "", Some(server_addr), server_port);
-            let response = message.marshall();
-            match response {
-                Ok(res) => res,
-                Err(_) => String::new(),
-            }
+            None
         },
     );
 }
