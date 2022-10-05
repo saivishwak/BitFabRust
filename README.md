@@ -2,7 +2,9 @@
 Building a peer to peer decentralized compute platform to run high demanding tasks distributedly.
 
 ## To Do
-- [ ] Add channels so that inter thread communication is possible (ex, http and p2p)
+- [ ] Architect channels and different components properly
+- [ ] Proper Error Handling
+- [x] Add channels so that inter thread communication is possible (ex, http and p2p)
 - [x] check if the processNewPeer handler a blocking task as we are awaiting there
 - [ ] refactor the entire code
 - [ ] make stream_id as UUID
