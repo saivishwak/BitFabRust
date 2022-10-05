@@ -1,9 +1,7 @@
 mod cli;
-
 use cli::Cli;
-
+mod http_routes;
 mod p2p_routes;
-mod routes;
 
 #[tokio::main]
 async fn main() {

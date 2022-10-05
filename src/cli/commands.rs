@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
+use super::http_routes;
 use super::p2p_routes;
-use super::routes;
 use http_core::Server;
 use router::Router;
+use tokio::sync::mpsc;
 
 pub async fn start(address: String, port: u16) {
-    let mut router = Router::new();
-    routes::configure(&mut router);
+    let mut http_router = Router::new();
+    http_routes::configure(&mut http_router);
 
     let mut p2p_router = p2p::router::Router::new();
     p2p_routes::configure(&mut p2p_router);
@@ -22,12 +23,14 @@ pub async fn start(address: String, port: u16) {
         p2p_router_arc.clone(),
     ));
 
+    let (tx, rx) = mpsc::channel::<i32>(32);
+
     let (_, _) = tokio::join!(
         tokio::task::spawn({
             let addr = addr.clone();
             async move {
-                let server: Server = Server::new(addr.to_string(), port);
-                server.start(router).await;
+                let http_server: Server = Server::new(addr.to_string(), port);
+                http_server.start(http_router, tx).await;
             }
         }),
         tokio::task::spawn({
@@ -35,7 +38,7 @@ pub async fn start(address: String, port: u16) {
             async move {
                 let mut p2p_router = p2p::router::Router::new();
                 p2p_routes::configure(&mut p2p_router);
-                p2p_server.start().await;
+                p2p_server.start(rx).await;
             }
         }),
     );

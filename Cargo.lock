@@ -681,6 +681,7 @@ dependencies = [
  "http",
  "hyper",
  "route-recognizer",
+ "tokio",
 ]
 
 [[package]]
