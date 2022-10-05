@@ -3,7 +3,6 @@ use p2p::message::Message;
 use p2p::GossipTypes;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tokio::time::{sleep, Duration};
 //use uuid::Uuid;
 
 use std::net::SocketAddr;
@@ -16,7 +15,7 @@ pub fn configure(router: &mut p2p::router::Router) {
             let server_port = server_state.lock().await.port;
             println!("Ping Handler - Server Add {} {:?}", server_addr, message);
             //To simluate async
-            sleep(Duration::from_millis(2000)).await;
+            //sleep(Duration::from_millis(2000)).await;
             let message =
                 Message::new(GossipTypes::Pong, "Ponging", Some(server_addr), server_port);
             let response = message.marshall();

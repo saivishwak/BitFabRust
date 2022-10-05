@@ -13,6 +13,7 @@ use tokio::net::TcpListener;
 use crate::peer;
 use crate::utils;
 use std::net::Ipv4Addr;
+use tokio::sync::broadcast;
 use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
@@ -90,7 +91,7 @@ impl ServerWrapper {
         }
     }
 
-    pub async fn start(&self, mut rx: mpsc::Receiver<i32>) {
+    pub async fn start(&self, mut rx: mpsc::Receiver<i32>, b_tx: broadcast::Sender<i32>) {
         let inner_self = self.inner.clone();
         let server_addr = inner_self.lock().await.address;
         let server_port = inner_self.lock().await.port;
@@ -178,6 +179,9 @@ impl ServerWrapper {
         //let _ = tokio::join!(a);
         while let Some(message) = rx.recv().await {
             println!("GOT = {}", message);
+            sleep(Duration::from_millis(5000)).await;
+            let _ = b_tx.send(1024);
+            let _ = b_tx.send(1023);
         }
     }
 

@@ -4,6 +4,7 @@ use super::http_routes;
 use super::p2p_routes;
 use http_core::Server;
 use router::Router;
+use tokio::sync::broadcast;
 use tokio::sync::mpsc;
 
 pub async fn start(address: String, port: u16) {
@@ -24,13 +25,15 @@ pub async fn start(address: String, port: u16) {
     ));
 
     let (tx, rx) = mpsc::channel::<i32>(32);
+    let (b_tx, _) = broadcast::channel::<i32>(32);
 
+    let b_tx1 = b_tx.clone();
     let (_, _) = tokio::join!(
         tokio::task::spawn({
             let addr = addr.clone();
             async move {
                 let http_server: Server = Server::new(addr.to_string(), port);
-                http_server.start(http_router, tx).await;
+                http_server.start(http_router, tx, b_tx1).await;
             }
         }),
         tokio::task::spawn({
@@ -38,7 +41,7 @@ pub async fn start(address: String, port: u16) {
             async move {
                 let mut p2p_router = p2p::router::Router::new();
                 p2p_routes::configure(&mut p2p_router);
-                p2p_server.start(rx).await;
+                p2p_server.start(rx, b_tx).await;
             }
         }),
     );

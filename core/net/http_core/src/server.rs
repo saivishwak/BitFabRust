@@ -4,6 +4,7 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::{convert::Infallible, net::SocketAddr};
+use tokio::sync::broadcast;
 use tokio::sync::mpsc;
 
 pub struct Server {
@@ -20,7 +21,12 @@ impl Server {
         }
     }
 
-    pub async fn start(&self, r: router::Router, tx: mpsc::Sender<i32>) {
+    pub async fn start(
+        &self,
+        r: router::Router,
+        tx: mpsc::Sender<i32>,
+        b_tx: broadcast::Sender<i32>,
+    ) {
         let addr: SocketAddr = SocketAddr::new(self.address, self.port);
         //let listener = TcpListener::bind(addr).await.unwrap();
         let r = Arc::new(r);
@@ -28,14 +34,17 @@ impl Server {
         let make_svc = make_service_fn(move |_conn| {
             let r = r.clone();
             let tx = tx.clone();
+            let b_tx = b_tx.clone();
             async move {
                 Ok::<_, Infallible>(service_fn(move |req| {
                     let r = r.clone();
                     let tx = tx.clone();
+                    let b_tx = b_tx.clone();
                     async move {
+                        let rx = b_tx.subscribe();
                         let mut s = req.method().to_string();
                         s = s + &req.uri().to_string();
-                        let a = r.handle(s, req, tx).await;
+                        let a = r.handle(s, req, tx, rx).await;
                         Ok::<_, Infallible>(a)
                     }
                 }))
