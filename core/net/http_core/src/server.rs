@@ -20,7 +20,11 @@ impl Server {
         }
     }
 
-    pub async fn start(&self, r: router::Router, tx: mpsc::Sender<i32>) {
+    pub async fn start(
+        &self,
+        r: router::Router,
+        tx: mpsc::Sender<i32>,
+    ) -> Result<(), hyper::Error> {
         let addr: SocketAddr = SocketAddr::new(self.address, self.port);
         //let listener = TcpListener::bind(addr).await.unwrap();
         let r = Arc::new(r);
@@ -43,10 +47,9 @@ impl Server {
         });
 
         // When using hyper as internal server
-        let server = hyperServer::bind(&addr).serve(make_svc);
+        let server = hyperServer::try_bind(&addr)?.serve(make_svc);
         println!("Listening HTTP on http://{}", addr);
-        if let Err(e) = server.await {
-            eprintln!("{}", e);
-        };
+        let _ = server.await?;
+        Ok(())
     }
 }

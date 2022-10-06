@@ -1,21 +1,27 @@
-use crate::message::{GossipTypes, Message};
-use crate::peer::Peer;
-use crate::router;
+/*
+
+   Main P2P Server source
+
+*/
 use std::io;
 use std::net::IpAddr;
+use std::net::Ipv4Addr;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::io::Interest;
 use tokio::net::TcpListener;
-//use tokio::net::TcpSocket;
-use crate::peer;
-use crate::utils;
-use std::net::Ipv4Addr;
 use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
+//use tokio::net::TcpSocket;
+
+use crate::message::{GossipTypes, Message};
+use crate::peer;
+use crate::peer::Peer;
+use crate::router;
+use crate::utils;
 
 pub struct Server {
     pub address: IpAddr,
@@ -25,10 +31,6 @@ pub struct Server {
 }
 
 impl Server {
-    pub async fn handle(&self) {
-        println!("Hanlde");
-    }
-
     pub async fn broadcast_to_peers(&self, _: Message, stream_id: SocketAddr, broadcast_port: u16) {
         println!("Broadcast initiated");
 
@@ -72,6 +74,7 @@ impl Server {
     }
 }
 
+// Main Wrapper implementation to contain the mutex
 pub struct ServerWrapper {
     pub inner: Arc<Mutex<Server>>,
 }
@@ -90,15 +93,17 @@ impl ServerWrapper {
         }
     }
 
-    pub async fn start(&self, mut rx: mpsc::Receiver<i32>) {
+    pub async fn start(&self, mut rx: mpsc::Receiver<i32>) -> Result<(), std::io::Error> {
         let inner_self = self.inner.clone();
         let server_addr = inner_self.lock().await.address;
         let server_port = inner_self.lock().await.port;
+
         let addr: SocketAddr = SocketAddr::new(server_addr, server_port);
-        let listener = TcpListener::bind(addr).await.unwrap();
+
+        let listener = TcpListener::bind(addr).await?;
         let server_router = inner_self.lock().await.router.clone();
 
-        let _ = tokio::task::spawn(async move {
+        let t1 = tokio::spawn(async move {
             loop {
                 let stream = listener.accept().await;
                 match stream {
@@ -106,6 +111,8 @@ impl ServerWrapper {
                         let stream_data_clone = Arc::new(Mutex::new(stream_data.0));
                         println!("Accepted new connection from {}", stream_data.1.to_string());
                         //let stream_id = Uuid::new_v4();
+
+                        //Add the peer to Peer List
                         let stream_id = stream_data.1;
                         inner_self.lock().await.peers.push(peer::Peer {
                             socket_stream: stream_data_clone.clone(),
@@ -114,8 +121,10 @@ impl ServerWrapper {
                             address: Some(stream_data.1.ip()),
                             port: 0,
                         });
+
+                        // Send the new connection to handler
                         let stream_data_clone_1 = stream_data_clone.clone();
-                        tokio::task::spawn({
+                        tokio::spawn({
                             let inner_self = inner_self.clone();
                             let router = server_router.clone();
                             async move {
@@ -130,11 +139,12 @@ impl ServerWrapper {
                             }
                         });
 
+                        // Send the first message to the incoming request
                         {
                             let stream_data_clone = stream_data_clone.clone();
                             let m = Message::new(
                                 GossipTypes::RequestServerInfo,
-                                "Hello",
+                                "handshake_init",
                                 Some(server_addr),
                                 server_port,
                             );
@@ -145,23 +155,37 @@ impl ServerWrapper {
                                         stream_data_clone.lock().await.write(st.as_bytes()).await;
                                 }
                                 Err(e) => {
+                                    // Don't do anything just log error
                                     println!("Error in marshalling {}", e);
                                 }
                             }
                         }
                     }
                     Err(err) => {
+                        //Don't do anything just log the error
                         println!("Error accepting connection {}", err);
                     }
                 }
             }
         });
+
+        // spwan task to connect to bootstrap peer
         let inner_self = self.inner.clone();
-        tokio::spawn(async move {
+        let t2 = tokio::spawn(async move {
             println!("Trying to connect to bootstrap peers");
-            utils::connect_to_peer(inner_self, 3002).await;
+            if let Err(e) = utils::connect_to_peer(inner_self, 3002).await {
+                println!("{}", e);
+            }
         });
 
+        // Receive the channel messages
+        let t3 = tokio::spawn(async move {
+            while let Some(message) = rx.recv().await {
+                println!("GOT = {}", message);
+            }
+        });
+
+        // Spwan task to log number of peer's connected
         let inner_self = self.inner.clone();
         tokio::spawn(async move {
             loop {
@@ -175,13 +199,9 @@ impl ServerWrapper {
             }
         });
 
-        //let _ = tokio::join!(a);
-        while let Some(message) = rx.recv().await {
-            println!("GOT = {}", message);
-        }
-    }
+        // Get the tasks to completion parallely - means on different threads
+        let (_, _, _) = tokio::join!(t1, t2, t3);
 
-    pub fn print_status(&self) {
-        println!("Running");
+        Ok(())
     }
 }

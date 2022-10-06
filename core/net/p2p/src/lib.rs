@@ -1,3 +1,5 @@
+//! Peer to Peer library can be used to instantiate a p2p server and configure routes
+
 pub mod message;
 mod peer;
 pub mod router;

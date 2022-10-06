@@ -1,9 +1,11 @@
 use hyper::{Body, Response};
-use router::{Methods, Router};
 use std::path::PathBuf;
 use tokio::fs::read_to_string;
 use tokio::sync::mpsc;
 
+use router::{Methods, Router};
+
+// function to configure the routes to router
 pub fn configure(router: &mut Router) {
     router.add_handler(
         String::from(Methods::GET.to_string() + "/"),

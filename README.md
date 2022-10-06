@@ -2,8 +2,9 @@
 Building a peer to peer decentralized compute platform to run high demanding tasks distributedly.
 
 ## To Do
+- [ ] **IMP** - Need to check why after creating 4 peers the 4th peer stucks in process server info awaiting lock
 - [ ] Architect channels and different components properly
-- [ ] Proper Error Handling
+- [x] Proper Error Handling
 - [x] Add channels so that inter thread communication is possible (ex, http and p2p)
 - [x] check if the processNewPeer handler a blocking task as we are awaiting there
 - [ ] refactor the entire code

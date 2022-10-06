@@ -1,13 +1,14 @@
-use p2p;
-use p2p::message::Message;
-use p2p::GossipTypes;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
 //use uuid::Uuid;
-
 use std::net::SocketAddr;
 
+use p2p;
+use p2p::message::Message;
+use p2p::GossipTypes;
+
+// function to configure p2p router
 pub fn configure(router: &mut p2p::router::Router) {
     router.add_handler(
         GossipTypes::Ping,
@@ -123,7 +124,9 @@ pub fn configure(router: &mut p2p::router::Router) {
             if !found {
                 if server_port != p {
                     let _ = tokio::task::spawn(async move {
-                        p2p::utils::connect_to_peer(server_info, p).await;
+                        if let Err(e) = p2p::utils::connect_to_peer(server_info, p).await {
+                            println!("{}", e);
+                        }
                     });
                     //let _ = tokio::join!(a);
                 }

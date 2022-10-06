@@ -3,6 +3,7 @@ use crate::peer;
 use crate::router;
 use crate::Server;
 use std::io;
+use std::io::{Error, ErrorKind};
 use std::net::SocketAddr;
 use std::str;
 use std::sync::Arc;
@@ -97,51 +98,41 @@ pub async fn handle_connection(
     }
 }
 
-pub async fn connect_to_peer(server: Arc<Mutex<Server>>, port: u16) {
+pub async fn connect_to_peer(server: Arc<Mutex<Server>>, port: u16) -> Result<(), Error> {
     println!("Attempting to connect Peer at {}", port);
     let inner_self = server.clone();
     let router_arc = inner_self.lock().await.router.clone();
 
     if inner_self.lock().await.port != port {
         let tcp_address = SocketAddr::from(([127, 0, 0, 1], port));
-        let stream = TcpStream::connect(tcp_address).await;
-        match stream {
-            Ok(stream_data) => {
-                let stream_id = stream_data.peer_addr();
-                let stream_data_clone = Arc::new(Mutex::new(stream_data));
-                println!("Successfully connected to peer at port {}", port);
-                //let stream_id = Uuid::new_v4();
+        let stream = TcpStream::connect(tcp_address).await?;
 
-                match stream_id {
-                    Ok(remote_addr) => {
-                        let inner_self = inner_self.clone();
-                        //let router_arc = router_arc.clone();
-                        inner_self.lock().await.peers.push(peer::Peer {
-                            socket_stream: stream_data_clone.clone(),
-                            stream_id: remote_addr,
-                            direction: peer::PeerDirection::Outbound,
-                            address: None,
-                            port: port,
-                        });
-                        handle_connection(
-                            inner_self,
-                            stream_data_clone,
-                            router_arc.clone(),
-                            remote_addr,
-                            remote_addr,
-                        )
-                        .await;
-                    }
-                    Err(e) => {
-                        println!("Err in getting peer_adddr {}", e);
-                    }
-                }
-            }
-            Err(e) => {
-                println!("Error Connecting Peer {} at {}", e, port);
-            }
-        }
+        let remote_addr = stream.peer_addr()?;
+        let stream_data_clone = Arc::new(Mutex::new(stream));
+
+        println!("Successfully connected to peer at port {}", port);
+        //let stream_id = Uuid::new_v4();
+        let inner_self = inner_self.clone();
+        //let router_arc = router_arc.clone();
+        inner_self.lock().await.peers.push(peer::Peer {
+            socket_stream: stream_data_clone.clone(),
+            stream_id: remote_addr,
+            direction: peer::PeerDirection::Outbound,
+            address: None,
+            port,
+        });
+        handle_connection(
+            inner_self,
+            stream_data_clone,
+            router_arc.clone(),
+            remote_addr,
+            remote_addr,
+        )
+        .await;
+
+        //Return Ok
+        Ok(())
     } else {
-        println!("Connected to self ignoring");
+        Err(Error::new(ErrorKind::Other, "Connecting to self ignoring"))
     }
 }
