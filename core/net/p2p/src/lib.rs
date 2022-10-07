@@ -6,5 +6,6 @@ pub mod router;
 mod server;
 pub mod utils;
 pub use message::GossipTypes;
+pub use peer::{Peer, PeerDirection};
 pub use server::Server;
 pub use server::ServerWrapper;

@@ -2,7 +2,8 @@
 Building a peer to peer decentralized compute platform to run high demanding tasks distributedly.
 
 ## To Do
-- [ ] **IMP** - Need to check why after creating 4 peers the 4th peer stucks in process server info awaiting lock
+- [ ] Add peer discovery as current approach is doing uneccessary broadcast
+- [x] **IMP** - Need to check why after creating 4 peers the 4th peer stucks in process server info awaiting lock
 - [ ] Architect channels and different components properly
 - [x] Proper Error Handling
 - [x] Add channels so that inter thread communication is possible (ex, http and p2p)

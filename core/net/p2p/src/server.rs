@@ -18,7 +18,7 @@ use tokio::time::{sleep, Duration};
 //use tokio::net::TcpSocket;
 
 use crate::message::{GossipTypes, Message};
-use crate::peer;
+//use crate::peer;
 use crate::peer::Peer;
 use crate::router;
 use crate::utils;
@@ -26,7 +26,7 @@ use crate::utils;
 pub struct Server {
     pub address: IpAddr,
     pub port: u16,
-    pub peers: Vec<Peer>,
+    pub peers: Arc<Mutex<Vec<Peer>>>,
     pub router: Arc<router::Router>,
 }
 
@@ -34,8 +34,11 @@ impl Server {
     pub async fn broadcast_to_peers(&self, _: Message, stream_id: SocketAddr, broadcast_port: u16) {
         println!("Broadcast initiated");
 
-        for peer in &self.peers {
-            if peer.stream_id != stream_id {
+        let peers = self.peers.lock().await;
+        let peers_len = peers.len();
+
+        for index in 0..peers_len {
+            if peers[index].stream_id != stream_id {
                 let message = Message::new(
                     GossipTypes::ProcessNewPeer,
                     "",
@@ -49,8 +52,8 @@ impl Server {
                     Err(_) => String::new(),
                 };
 
-                let mut a = peer.socket_stream.lock().await;
-                println!("Broadcasting to peer {}", peer.port);
+                let mut a = peers[index].socket_stream.lock().await;
+                println!("Broadcasting to peer {}", peers[index].port);
                 let stream_ready = a
                     .ready(Interest::READABLE | Interest::WRITABLE)
                     .await
@@ -76,7 +79,7 @@ impl Server {
 
 // Main Wrapper implementation to contain the mutex
 pub struct ServerWrapper {
-    pub inner: Arc<Mutex<Server>>,
+    pub inner: Arc<Server>,
 }
 
 impl ServerWrapper {
@@ -85,23 +88,23 @@ impl ServerWrapper {
         let server = Server {
             address: IpAddr::from_str(&address).unwrap(),
             port,
-            peers: Vec::new(),
+            peers: Arc::new(Mutex::new(Vec::new())),
             router: router.clone(),
         };
         Self {
-            inner: Arc::new(Mutex::new(server)),
+            inner: Arc::new(server),
         }
     }
 
     pub async fn start(&self, mut rx: mpsc::Receiver<i32>) -> Result<(), std::io::Error> {
         let inner_self = self.inner.clone();
-        let server_addr = inner_self.lock().await.address;
-        let server_port = inner_self.lock().await.port;
+        let server_addr = inner_self.address;
+        let server_port = inner_self.port;
 
         let addr: SocketAddr = SocketAddr::new(server_addr, server_port);
 
         let listener = TcpListener::bind(addr).await?;
-        let server_router = inner_self.lock().await.router.clone();
+        let server_router = inner_self.router.clone();
 
         let t1 = tokio::spawn(async move {
             loop {
@@ -114,13 +117,16 @@ impl ServerWrapper {
 
                         //Add the peer to Peer List
                         let stream_id = stream_data.1;
-                        inner_self.lock().await.peers.push(peer::Peer {
+
+                        // moved push peer to route handler
+                        /*
+                        inner_self.peers.lock().await.push(peer::Peer {
                             socket_stream: stream_data_clone.clone(),
                             stream_id,
                             direction: peer::PeerDirection::Inbound,
                             address: Some(stream_data.1.ip()),
                             port: 0,
-                        });
+                        });*/
 
                         // Send the new connection to handler
                         let stream_data_clone_1 = stream_data_clone.clone();
@@ -190,12 +196,8 @@ impl ServerWrapper {
         tokio::spawn(async move {
             loop {
                 sleep(Duration::from_millis(3000)).await;
-                let peers = &inner_self.lock().await.peers;
-                let mut count = 0;
-                for _ in peers {
-                    count += 1;
-                }
-                println!("Total Number of peers - {}", count);
+                let peers = &inner_self.peers.lock().await;
+                println!("Total Number of peers - {}", peers.len());
             }
         });
 

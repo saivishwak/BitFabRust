@@ -13,7 +13,7 @@ use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 
 pub async fn handle_connection(
-    inner_self: Arc<Mutex<Server>>,
+    inner_self: Arc<Server>,
     stream: Arc<Mutex<tokio::net::TcpStream>>,
     router: Arc<router::Router>,
     stream_id: SocketAddr,
@@ -42,8 +42,15 @@ pub async fn handle_connection(
                     let gossip_type_res = Message::unmarshall(&buffer);
                     match gossip_type_res {
                         Ok(message) => {
-                            let response =
-                                router.handle(message, stream_id, inner_self.clone()).await;
+                            let response = router
+                                .handle(
+                                    message,
+                                    stream_id,
+                                    inner_self.clone(),
+                                    stream.clone(),
+                                    remote_addr,
+                                )
+                                .await;
                             match response {
                                 Some(res_string) => {
                                     if stream_ready.is_writable() {
@@ -85,7 +92,7 @@ pub async fn handle_connection(
         }
     }
     // Socket must be disconnected clean up the peers vec
-    let peers = &mut inner_self.lock().await.peers;
+    let peers = &mut inner_self.peers.lock().await;
     let mut index = 0;
     let peers_len = peers.len();
     for i in 0..peers_len {
@@ -98,12 +105,12 @@ pub async fn handle_connection(
     }
 }
 
-pub async fn connect_to_peer(server: Arc<Mutex<Server>>, port: u16) -> Result<(), Error> {
+pub async fn connect_to_peer(server: Arc<Server>, port: u16) -> Result<(), Error> {
     println!("Attempting to connect Peer at {}", port);
     let inner_self = server.clone();
-    let router_arc = inner_self.lock().await.router.clone();
+    let router_arc = inner_self.router.clone();
 
-    if inner_self.lock().await.port != port {
+    if inner_self.port != port {
         let tcp_address = SocketAddr::from(([127, 0, 0, 1], port));
         let stream = TcpStream::connect(tcp_address).await?;
 
@@ -112,9 +119,9 @@ pub async fn connect_to_peer(server: Arc<Mutex<Server>>, port: u16) -> Result<()
 
         println!("Successfully connected to peer at port {}", port);
         //let stream_id = Uuid::new_v4();
-        let inner_self = inner_self.clone();
+        let inner_self = inner_self;
         //let router_arc = router_arc.clone();
-        inner_self.lock().await.peers.push(peer::Peer {
+        inner_self.peers.lock().await.push(peer::Peer {
             socket_stream: stream_data_clone.clone(),
             stream_id: remote_addr,
             direction: peer::PeerDirection::Outbound,
