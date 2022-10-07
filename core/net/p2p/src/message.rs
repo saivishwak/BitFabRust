@@ -15,6 +15,7 @@ pub enum GossipTypes {
     RequestServerInfo,
     ProcessServerInfo,
     ProcessNewPeer,
+    HandleTask,
     Def,
 }
 
@@ -44,7 +45,7 @@ pub struct PeerInfo {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MessageBody {
     pub peer_info: PeerInfo,
-    body: String,
+    pub body: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

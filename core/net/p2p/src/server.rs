@@ -189,6 +189,7 @@ impl ServerWrapper {
         });
 
         // Receive the channel messages
+        let inner_self = self.inner.clone();
         let t3 = tokio::spawn(async move {
             while let Some(message) = rx.recv().await {
                 match message {
@@ -198,6 +199,44 @@ impl ServerWrapper {
                         // This can happen if the `select!` macro is used
                         // to cancel waiting for the response.
                         println!("Got message from HTTP channel");
+                        let peers = inner_self.peers.lock().await;
+
+                        for index in 0..peers.len() {
+                            let message = Message::new(
+                                GossipTypes::HandleTask,
+                                &index.to_string(),
+                                Some(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))),
+                                peers[index].port,
+                            );
+
+                            let response = message.marshall();
+                            let resp = match response {
+                                Ok(res) => res,
+                                Err(_) => String::new(),
+                            };
+
+                            let mut a = peers[index].socket_stream.lock().await;
+                            println!("Sending Task to peer {}", peers[index].port);
+                            let stream_ready = a
+                                .ready(Interest::READABLE | Interest::WRITABLE)
+                                .await
+                                .unwrap();
+                            if stream_ready.is_writable() {
+                                match a.write_all(resp.as_bytes()).await {
+                                    Ok(_) => {
+                                        println!("Successfully sent braodcast message");
+                                    }
+                                    Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                                        println!("Error in would block write for broadcast");
+                                        continue;
+                                    }
+                                    Err(e) => {
+                                        println!("Error sending message for broadcast {}", e);
+                                    }
+                                }
+                            }
+                        }
+
                         let _ = respond_to.send(12);
                     }
                 }

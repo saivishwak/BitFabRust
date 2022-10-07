@@ -151,4 +151,20 @@ pub fn configure(router: &mut p2p::router::Router) {
             None
         },
     );
+
+    router.add_handler(
+        GossipTypes::HandleTask,
+        |message: Message,
+         _: SocketAddr,
+         _: Arc<p2p::Server>,
+         _: Arc<Mutex<tokio::net::TcpStream>>,
+         _: SocketAddr| async move {
+            println!("Handle Task handler {}", message.body.body);
+            println!("Handling Task with Data {}", message.body.body);
+            for index in 0..10 {
+                println!("{}", index);
+            }
+            None
+        },
+    );
 }
