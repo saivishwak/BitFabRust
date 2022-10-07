@@ -1,5 +1,5 @@
 [package]
-name = "http_core"
+name = "bitfab_utils"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,3 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1.20.1", features = ["full"] }
-hyper = { version = "0.14", features = ["full", "server"] }
-http = "0.2.8"
-router = {path = "../router"}
-bitfab_utils = {path = "../../bitfab_utils"}

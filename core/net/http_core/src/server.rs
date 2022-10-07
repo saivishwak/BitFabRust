@@ -6,6 +6,8 @@ use std::sync::Arc;
 use std::{convert::Infallible, net::SocketAddr};
 use tokio::sync::mpsc;
 
+use bitfab_utils;
+
 pub struct Server {
     pub address: IpAddr,
     pub port: u16,
@@ -23,7 +25,7 @@ impl Server {
     pub async fn start(
         &self,
         r: router::Router,
-        tx: mpsc::Sender<i32>,
+        tx: mpsc::Sender<bitfab_utils::ActorMessage>,
     ) -> Result<(), hyper::Error> {
         let addr: SocketAddr = SocketAddr::new(self.address, self.port);
         //let listener = TcpListener::bind(addr).await.unwrap();

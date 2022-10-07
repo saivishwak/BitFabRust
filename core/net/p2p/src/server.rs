@@ -22,6 +22,7 @@ use crate::message::{GossipTypes, Message};
 use crate::peer::Peer;
 use crate::router;
 use crate::utils;
+use bitfab_utils;
 
 pub struct Server {
     pub address: IpAddr,
@@ -96,7 +97,10 @@ impl ServerWrapper {
         }
     }
 
-    pub async fn start(&self, mut rx: mpsc::Receiver<i32>) -> Result<(), std::io::Error> {
+    pub async fn start(
+        &self,
+        mut rx: mpsc::Receiver<bitfab_utils::ActorMessage>,
+    ) -> Result<(), std::io::Error> {
         let inner_self = self.inner.clone();
         let server_addr = inner_self.address;
         let server_port = inner_self.port;
@@ -187,7 +191,16 @@ impl ServerWrapper {
         // Receive the channel messages
         let t3 = tokio::spawn(async move {
             while let Some(message) = rx.recv().await {
-                println!("GOT = {}", message);
+                match message {
+                    bitfab_utils::ActorMessage::GetUniqueId { respond_to } => {
+                        // The `let _ =` ignores any errors when sending.
+                        //
+                        // This can happen if the `select!` macro is used
+                        // to cancel waiting for the response.
+                        println!("Got message from HTTP channel");
+                        let _ = respond_to.send(12);
+                    }
+                }
             }
         });
 

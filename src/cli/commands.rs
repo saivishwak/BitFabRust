@@ -6,6 +6,8 @@ use super::p2p_routes;
 use http_core::Server;
 use router::Router;
 
+use bitfab_utils;
+
 pub async fn start(address: String, port: u16) {
     // Initiate http router
     let mut http_router = Router::new();
@@ -25,7 +27,7 @@ pub async fn start(address: String, port: u16) {
     ));
 
     //Create a communication chhanel for http and p2p
-    let (tx, rx) = mpsc::channel::<i32>(32);
+    let (tx, rx) = mpsc::channel::<bitfab_utils::ActorMessage>(32);
 
     // spwan http and p2p tasks and wait for completion
     let (_, _) = tokio::join!(

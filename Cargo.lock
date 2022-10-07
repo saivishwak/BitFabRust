@@ -154,6 +154,7 @@ dependencies = [
 name = "bitfab"
 version = "0.1.0"
 dependencies = [
+ "bitfab_utils",
  "clap",
  "colored",
  "http_core",
@@ -163,6 +164,13 @@ dependencies = [
  "router",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "bitfab_utils"
+version = "0.1.0"
+dependencies = [
+ "tokio",
 ]
 
 [[package]]
@@ -678,6 +686,7 @@ checksum = "0bfe8eed0a9285ef776bb792479ea3834e8b94e13d615c2f66d03dd50a435a29"
 name = "http_core"
 version = "0.1.0"
 dependencies = [
+ "bitfab_utils",
  "http",
  "hyper",
  "router",
@@ -943,6 +952,7 @@ checksum = "9ff7415e9ae3fff1225851df9e0d9e4e5479f947619774677a63572e55e80eff"
 name = "p2p"
 version = "0.1.0"
 dependencies = [
+ "bitfab_utils",
  "rand",
  "serde",
  "serde_json",
@@ -1212,6 +1222,7 @@ checksum = "afab94fb28594581f62d981211a9a4d53cc8130bbcbbb89a0440d9b8e81a7746"
 name = "router"
 version = "0.1.0"
 dependencies = [
+ "bitfab_utils",
  "http",
  "hyper",
  "route-recognizer",
