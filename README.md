@@ -16,3 +16,5 @@ Building a peer to peer decentralized compute platform to run high demanding tas
 - [x] Implement the connect_to_peer in server struct
 
 The reason to do them is that we need to access them from the router closures
+
+This project is moved to https://github.com/BitFab-Labs/rust_decentralized
